@@ -42,9 +42,18 @@ export async function submitProcess(formData: FormData): Promise<unknown[]> {
     method: "POST",
     body: formData,
   });
-  const data = (await res.json()) as { success: boolean; results?: unknown[]; error?: string };
+  const text = await res.text();
+  if (!text) {
+    throw new Error("Server returned an empty response — it may have timed out. Try fewer/smaller files.");
+  }
+  let data: { success: boolean; results?: unknown[]; error?: string; detail?: string };
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid response from server. It may have timed out or crashed.");
+  }
   if (!res.ok || !data.success) {
-    throw new Error(data.error ?? "Processing failed");
+    throw new Error(data.error ?? data.detail ?? "Processing failed");
   }
   return data.results ?? [];
 }
