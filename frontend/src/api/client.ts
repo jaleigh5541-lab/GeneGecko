@@ -10,7 +10,7 @@ export interface CategoriesResponse {
 }
 
 export async function fetchCategories(): Promise<CategoriesResponse> {
-  const res = await fetch(`${API_BASE}/api/categories`);
+  const res = await fetch("/api/categories");
   if (!res.ok) throw new Error("Failed to fetch categories");
   return res.json() as Promise<CategoriesResponse>;
 }
@@ -30,7 +30,7 @@ export async function submitAlign(
   seq2: string,
   seqType: "dna" | "protein",
 ): Promise<AlignResponse> {
-  const res = await fetch(`${API_BASE}/api/align`, {
+  const res = await fetch("/api/align", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ seq1, seq2, seq_type: seqType }),
@@ -45,39 +45,20 @@ export async function submitAlign(
 async function pollJob(jobId: string): Promise<unknown[]> {
   while (true) {
     await new Promise((r) => setTimeout(r, 2000));
+    // Poll directly to Render — lightweight GET, no CORS issues
     const res = await fetch(`${API_BASE}/api/jobs/${jobId}`);
     if (!res.ok) throw new Error(`Job poll failed (HTTP ${res.status})`);
     const data = await res.json();
     if (data.status === "done") return data.results ?? [];
     if (data.status === "error") throw new Error(data.error ?? "Processing failed");
-    // still running — keep polling
   }
-}
-
-async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Promise<Response> {
-  for (let i = 0; i <= retries; i++) {
-    try {
-      const res = await fetch(url, init);
-      if (res.status === 503 && i < retries) {
-        await new Promise((r) => setTimeout(r, 3000));
-        continue;
-      }
-      return res;
-    } catch (err) {
-      if (i < retries) {
-        await new Promise((r) => setTimeout(r, 3000));
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw new Error("Unreachable");
 }
 
 export async function submitProcess(formData: FormData): Promise<unknown[]> {
   let res: Response;
   try {
-    res = await fetchWithRetry(`${API_BASE}/api/process`, {
+    // Upload via Netlify proxy (same-origin, no CORS)
+    res = await fetch("/api/process", {
       method: "POST",
       body: formData,
     });
