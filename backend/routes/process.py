@@ -13,8 +13,8 @@ from serializers import serialize_results
 
 router = APIRouter(prefix="/api")
 
-PAIRS_PER_BATCH = 3  # process 3 pairs (6 files) at a time for paired mode
-FILES_PER_BATCH = 5  # process 5 files at a time for non-paired modes
+PAIRS_PER_BATCH = 3   # process 3 pairs (6 files) at a time for paired mode
+FILES_PER_BATCH = 5   # process 5 files at a time for non-paired modes
 
 # In-memory job store
 _jobs: dict[str, dict[str, Any]] = {}
