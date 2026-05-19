@@ -830,6 +830,14 @@ legend {
   z-index: 1;
 }
 
+.gecko-loading-progress {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  position: relative;
+  z-index: 1;
+}
+
 .gecko-walker {
   position: absolute;
   bottom: 25%;

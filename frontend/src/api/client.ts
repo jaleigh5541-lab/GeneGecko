@@ -42,22 +42,31 @@ export async function submitAlign(
   return data;
 }
 
-async function pollJob(jobId: string): Promise<unknown[]> {
+export type ProgressCallback = (processed: number, total: number) => void;
+
+async function pollJob(
+  jobId: string,
+  onProgress?: ProgressCallback,
+): Promise<unknown[]> {
   while (true) {
     await new Promise((r) => setTimeout(r, 2000));
-    // Poll directly to Render — lightweight GET, no CORS issues
     const res = await fetch(`${API_BASE}/api/jobs/${jobId}`);
     if (!res.ok) throw new Error(`Job poll failed (HTTP ${res.status})`);
     const data = await res.json();
     if (data.status === "done") return data.results ?? [];
     if (data.status === "error") throw new Error(data.error ?? "Processing failed");
+    if (data.progress && onProgress) {
+      onProgress(data.progress.processed, data.progress.total);
+    }
   }
 }
 
-export async function submitProcess(formData: FormData): Promise<unknown[]> {
+export async function submitProcess(
+  formData: FormData,
+  onProgress?: ProgressCallback,
+): Promise<unknown[]> {
   let res: Response;
   try {
-    // Upload via Netlify proxy (same-origin, no CORS)
     res = await fetch("/api/process", {
       method: "POST",
       body: formData,
@@ -78,5 +87,5 @@ export async function submitProcess(formData: FormData): Promise<unknown[]> {
   if (!res.ok || !data.success || !data.job_id) {
     throw new Error(data.error ?? data.detail ?? `Processing failed (HTTP ${res.status})`);
   }
-  return pollJob(data.job_id);
+  return pollJob(data.job_id, onProgress);
 }

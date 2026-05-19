@@ -1,3 +1,4 @@
+import gc
 import json
 import threading
 import time
@@ -12,9 +13,11 @@ from serializers import serialize_results
 
 router = APIRouter(prefix="/api")
 
-# In-memory job store: {job_id: {status, results, error, created_at}}
+BATCH_SIZE = 5  # process this many files at a time to limit peak memory
+
+# In-memory job store: {job_id: {status, results, error, created_at, progress}}
 _jobs: dict[str, dict[str, Any]] = {}
-_JOBS_TTL = 3600  # clean up jobs older than 1 hour
+_JOBS_TTL = 3600
 
 
 def _cleanup_jobs() -> None:
@@ -22,6 +25,69 @@ def _cleanup_jobs() -> None:
     expired = [jid for jid, j in _jobs.items() if now - j["created_at"] > _JOBS_TTL]
     for jid in expired:
         del _jobs[jid]
+
+
+def _process_batch(
+    seq_batch: list[FileWrapper],
+    ref_wrapper: FileWrapper,
+    sequence_type: str,
+    use_protein: bool,
+    use_dna_alignment: bool,
+    min_lcs: int,
+    selected: Optional[list[str]],
+) -> list[dict[str, Any]]:
+    """Process a single batch of sequence files and return serialized results."""
+    if use_protein:
+        from Prot_modules import (  # type: ignore[import]
+            main as prot_main,
+            process_circular_queries as prot_circular,
+            process_unidirectional as prot_unidirectional,
+        )
+        if sequence_type == "circular":
+            results = prot_circular(
+                seq_batch, ref_wrapper,
+                use_dna_alignment=use_dna_alignment,
+                selected_categories=selected,
+            )
+        elif sequence_type == "unidirectional":
+            results = prot_unidirectional(
+                seq_batch, ref_wrapper,
+                use_dna_alignment=use_dna_alignment,
+                selected_categories=selected,
+            )
+        else:
+            results = prot_main(
+                seq_batch, ref_wrapper,
+                min_lcs=min_lcs,
+                use_dna_alignment=use_dna_alignment,
+            )
+    else:
+        from intron_modules import (  # type: ignore[import]
+            main as intron_main,
+            process_circular_queries as intron_circular,
+            process_unidirectional as intron_unidirectional,
+        )
+        if sequence_type == "circular":
+            results = intron_circular(
+                seq_batch, ref_wrapper,
+                selected_categories=selected,
+            )
+        elif sequence_type == "unidirectional":
+            results = intron_unidirectional(
+                seq_batch, ref_wrapper,
+                selected_categories=selected,
+            )
+        else:
+            results = intron_main(
+                seq_batch, ref_wrapper,
+                min_lcs=min_lcs,
+                selected_categories=selected,
+            )
+
+    serialized = serialize_results(results)
+    del results
+    gc.collect()
+    return serialized
 
 
 def _run_processing(
@@ -37,57 +103,30 @@ def _run_processing(
     try:
         use_protein = primer_type != "intron"
         use_dna_alignment = use_aa_refs.lower() != "true"
+        total = len(seq_wrappers)
 
-        if use_protein:
-            from Prot_modules import (  # type: ignore[import]
-                main as prot_main,
-                process_circular_queries as prot_circular,
-                process_unidirectional as prot_unidirectional,
+        all_results: list[dict[str, Any]] = []
+
+        for i in range(0, total, BATCH_SIZE):
+            batch = seq_wrappers[i : i + BATCH_SIZE]
+            batch_results = _process_batch(
+                batch, ref_wrapper, sequence_type,
+                use_protein, use_dna_alignment, min_lcs, selected,
             )
+            all_results.extend(batch_results)
 
-            if sequence_type == "circular":
-                results = prot_circular(
-                    seq_wrappers, ref_wrapper,
-                    use_dna_alignment=use_dna_alignment,
-                    selected_categories=selected,
-                )
-            elif sequence_type == "unidirectional":
-                results = prot_unidirectional(
-                    seq_wrappers, ref_wrapper,
-                    use_dna_alignment=use_dna_alignment,
-                    selected_categories=selected,
-                )
-            else:
-                results = prot_main(
-                    seq_wrappers, ref_wrapper,
-                    min_lcs=min_lcs,
-                    use_dna_alignment=use_dna_alignment,
-                )
-        else:
-            from intron_modules import (  # type: ignore[import]
-                main as intron_main,
-                process_circular_queries as intron_circular,
-                process_unidirectional as intron_unidirectional,
-            )
+            # Update progress
+            processed = min(i + BATCH_SIZE, total)
+            _jobs[job_id]["progress"] = {
+                "processed": processed,
+                "total": total,
+            }
 
-            if sequence_type == "circular":
-                results = intron_circular(
-                    seq_wrappers, ref_wrapper,
-                    selected_categories=selected,
-                )
-            elif sequence_type == "unidirectional":
-                results = intron_unidirectional(
-                    seq_wrappers, ref_wrapper,
-                    selected_categories=selected,
-                )
-            else:
-                results = intron_main(
-                    seq_wrappers, ref_wrapper,
-                    min_lcs=min_lcs,
-                    selected_categories=selected,
-                )
+            # Free the batch
+            del batch, batch_results
+            gc.collect()
 
-        _jobs[job_id]["results"] = serialize_results(results)
+        _jobs[job_id]["results"] = all_results
         _jobs[job_id]["status"] = "done"
 
     except Exception as e:
@@ -112,7 +151,6 @@ async def process(
         json.loads(selected_categories) if selected_categories else None
     )
 
-    # Read all file data upfront (before the request closes)
     seq_wrappers = [
         FileWrapper(f.filename or "", await f.read()) for f in seq_files
     ]
@@ -126,6 +164,7 @@ async def process(
         "results": None,
         "error": None,
         "created_at": time.time(),
+        "progress": {"processed": 0, "total": len(seq_wrappers)},
     }
 
     thread = threading.Thread(
@@ -146,7 +185,10 @@ async def get_job(job_id: str) -> JSONResponse:
         raise HTTPException(status_code=404, detail="Job not found")
 
     if job["status"] == "running":
-        return JSONResponse({"status": "running"})
+        return JSONResponse({
+            "status": "running",
+            "progress": job.get("progress"),
+        })
     elif job["status"] == "error":
         return JSONResponse({"status": "error", "error": job["error"]})
     else:

@@ -86,6 +86,7 @@ const fp = document.createElement("div");
   }, [isProcessing]);
 
   const [results, setResults] = useState<unknown[] | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState<string | null>(null);
 
   async function handleProcess() {
     setError(null);
@@ -111,12 +112,15 @@ const fp = document.createElement("div");
 
     setIsProcessing(true);
     try {
-      const res = await submitProcess(formData);
+      const res = await submitProcess(formData, (processed, total) => {
+        setLoadingProgress(`Processing ${processed} / ${total} files...`);
+      });
       setResults(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
     } finally {
       setIsProcessing(false);
+      setLoadingProgress(null);
     }
   }
 
@@ -148,6 +152,7 @@ const fp = document.createElement("div");
           {isProcessing && (
             <div ref={overlayRef} className="gecko-loading-overlay">
               <p className="gecko-loading-text">{loadingText}</p>
+              {loadingProgress && <p className="gecko-loading-progress">{loadingProgress}</p>}
               <div ref={geckoWalkerRef} className="gecko-walker">
                 <Lottie animationData={geckoAnimation} loop={true} style={{ width: 180, height: 180 }} />
               </div>
