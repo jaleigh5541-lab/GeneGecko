@@ -1,5 +1,8 @@
 const API_BASE = import.meta.env.PUBLIC_API_URL ?? "";
 
+// Wake the backend on page load so it's ready when the user clicks Process
+fetch(`${API_BASE}/api/health`).catch(() => {});
+
 export interface CategoriesResponse {
   categories: string[];
   colors: Record<string, string>;
@@ -51,15 +54,35 @@ async function pollJob(jobId: string): Promise<unknown[]> {
   }
 }
 
+async function fetchWithRetry(url: string, init: RequestInit, retries = 2): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    try {
+      const res = await fetch(url, init);
+      if (res.status === 503 && i < retries) {
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      return res;
+    } catch (err) {
+      if (i < retries) {
+        await new Promise((r) => setTimeout(r, 3000));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("Unreachable");
+}
+
 export async function submitProcess(formData: FormData): Promise<unknown[]> {
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/api/process`, {
+    res = await fetchWithRetry(`${API_BASE}/api/process`, {
       method: "POST",
       body: formData,
     });
   } catch (err) {
-    throw new Error(`Network error: ${err instanceof Error ? err.message : "failed to reach server"}`);
+    throw new Error(`Network error: ${err instanceof Error ? err.message : "failed to reach server"}. The server may be starting up — wait 30s and retry.`);
   }
   const text = await res.text();
   if (!text) {
