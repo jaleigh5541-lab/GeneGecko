@@ -4,6 +4,6 @@
 
 [[redirects]]
   from = "/api/*"
-  to = "RENDER_BACKEND_URL/api/:splat"
+  to = "https://genegecko.onrender.com/api/:splat"
   status = 200
   force = true
