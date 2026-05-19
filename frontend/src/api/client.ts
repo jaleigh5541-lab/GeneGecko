@@ -1,3 +1,5 @@
+const API_BASE = import.meta.env.PUBLIC_API_URL ?? "";
+
 export interface CategoriesResponse {
   categories: string[];
   colors: Record<string, string>;
@@ -5,7 +7,7 @@ export interface CategoriesResponse {
 }
 
 export async function fetchCategories(): Promise<CategoriesResponse> {
-  const res = await fetch("/api/categories");
+  const res = await fetch(`${API_BASE}/api/categories`);
   if (!res.ok) throw new Error("Failed to fetch categories");
   return res.json() as Promise<CategoriesResponse>;
 }
@@ -25,7 +27,7 @@ export async function submitAlign(
   seq2: string,
   seqType: "dna" | "protein",
 ): Promise<AlignResponse> {
-  const res = await fetch("/api/align", {
+  const res = await fetch(`${API_BASE}/api/align`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ seq1, seq2, seq_type: seqType }),
@@ -40,7 +42,7 @@ export async function submitAlign(
 export async function submitProcess(formData: FormData): Promise<unknown[]> {
   let res: Response;
   try {
-    res = await fetch("/api/process", {
+    res = await fetch(`${API_BASE}/api/process`, {
       method: "POST",
       body: formData,
     });
