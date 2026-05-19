@@ -1093,8 +1093,8 @@ legend {
 .align-loading-roller {
   position: absolute;
   bottom: 30%;
-  width: 80px;
-  height: 80px;
+  width: 240px;
+  height: 240px;
   animation: roller-traverse 6s linear infinite;
 }
 
@@ -1105,8 +1105,8 @@ legend {
 }
 
 @keyframes roller-traverse {
-  from { transform: translateX(calc(100vw + 100px)); }
-  to   { transform: translateX(-100px); }
+  from { transform: translateX(calc(100vw + 260px)); }
+  to   { transform: translateX(-260px); }
 }
 
 @keyframes roller-spin {
