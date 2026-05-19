@@ -13,9 +13,10 @@ from serializers import serialize_results
 
 router = APIRouter(prefix="/api")
 
-BATCH_SIZE = 5  # process this many files at a time to limit peak memory
+PAIRS_PER_BATCH = 3  # process 3 pairs (6 files) at a time for paired mode
+FILES_PER_BATCH = 5  # process 5 files at a time for non-paired modes
 
-# In-memory job store: {job_id: {status, results, error, created_at, progress}}
+# In-memory job store
 _jobs: dict[str, dict[str, Any]] = {}
 _JOBS_TTL = 3600
 
@@ -90,6 +91,50 @@ def _process_batch(
     return serialized
 
 
+def _group_into_pair_batches(
+    seq_wrappers: list[FileWrapper],
+) -> list[list[FileWrapper]]:
+    """Group files into batches that keep T7/T7-Term pairs together."""
+    import re
+
+    def normalize(name: str) -> str:
+        return re.sub(r'\s*\(\d+\)(?=\.seq$)', '', name, flags=re.IGNORECASE)
+
+    # Find pairs using the same logic as Prot_modules.find_pairs
+    filenames = [w.name for w in seq_wrappers]
+    name_to_wrapper = {w.name: w for w in seq_wrappers}
+    norm_map = {normalize(f).lower(): f for f in filenames}
+
+    paired_files: list[list[FileWrapper]] = []  # each entry is [fwd, rev]
+    used: set[str] = set()
+
+    for f in filenames:
+        norm_f = normalize(f)
+        if re.search(r'-t7\.seq$', norm_f, re.IGNORECASE):
+            prefix = re.sub(r'-t7\.seq$', '', norm_f, flags=re.IGNORECASE)
+            rev_candidate = prefix + "-T7-Term.seq"
+            rev_file = norm_map.get(rev_candidate.lower())
+            if rev_file and f not in used and rev_file not in used:
+                paired_files.append([name_to_wrapper[f], name_to_wrapper[rev_file]])
+                used.add(f)
+                used.add(rev_file)
+
+    # Batch pairs together
+    batches: list[list[FileWrapper]] = []
+    for i in range(0, len(paired_files), PAIRS_PER_BATCH):
+        batch: list[FileWrapper] = []
+        for pair in paired_files[i : i + PAIRS_PER_BATCH]:
+            batch.extend(pair)
+        batches.append(batch)
+
+    # Any unpaired files go in a final batch
+    unpaired = [w for w in seq_wrappers if w.name not in used]
+    if unpaired:
+        batches.append(unpaired)
+
+    return batches
+
+
 def _run_processing(
     job_id: str,
     seq_wrappers: list[FileWrapper],
@@ -103,26 +148,33 @@ def _run_processing(
     try:
         use_protein = primer_type != "intron"
         use_dna_alignment = use_aa_refs.lower() != "true"
-        total = len(seq_wrappers)
 
+        # Build batches: pair-aware for paired mode, simple chunks otherwise
+        if sequence_type == "paired":
+            batches = _group_into_pair_batches(seq_wrappers)
+        else:
+            batches = [
+                seq_wrappers[i : i + FILES_PER_BATCH]
+                for i in range(0, len(seq_wrappers), FILES_PER_BATCH)
+            ]
+
+        total_files = len(seq_wrappers)
+        processed_files = 0
         all_results: list[dict[str, Any]] = []
 
-        for i in range(0, total, BATCH_SIZE):
-            batch = seq_wrappers[i : i + BATCH_SIZE]
+        for batch in batches:
             batch_results = _process_batch(
                 batch, ref_wrapper, sequence_type,
                 use_protein, use_dna_alignment, min_lcs, selected,
             )
             all_results.extend(batch_results)
+            processed_files += len(batch)
 
-            # Update progress
-            processed = min(i + BATCH_SIZE, total)
             _jobs[job_id]["progress"] = {
-                "processed": processed,
-                "total": total,
+                "processed": processed_files,
+                "total": total_files,
             }
 
-            # Free the batch
             del batch, batch_results
             gc.collect()
 
