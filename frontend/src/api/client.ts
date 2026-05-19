@@ -38,22 +38,27 @@ export async function submitAlign(
 }
 
 export async function submitProcess(formData: FormData): Promise<unknown[]> {
-  const res = await fetch("/api/process", {
-    method: "POST",
-    body: formData,
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/process", {
+      method: "POST",
+      body: formData,
+    });
+  } catch (err) {
+    throw new Error(`Network error: ${err instanceof Error ? err.message : "failed to reach server"}`);
+  }
   const text = await res.text();
   if (!text) {
-    throw new Error("Server returned an empty response — it may have timed out. Try fewer/smaller files.");
+    throw new Error(`Empty response (HTTP ${res.status}). The server may have timed out. Try fewer/smaller files.`);
   }
   let data: { success: boolean; results?: unknown[]; error?: string; detail?: string };
   try {
     data = JSON.parse(text);
   } catch {
-    throw new Error("Invalid response from server. It may have timed out or crashed.");
+    throw new Error(`Server returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
   }
   if (!res.ok || !data.success) {
-    throw new Error(data.error ?? data.detail ?? "Processing failed");
+    throw new Error(data.error ?? data.detail ?? `Processing failed (HTTP ${res.status})`);
   }
   return data.results ?? [];
 }
