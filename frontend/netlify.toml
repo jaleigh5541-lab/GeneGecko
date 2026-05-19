@@ -1,0 +1,9 @@
+[build]
+  command = "npm install && npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/api/*"
+  to = "RENDER_BACKEND_URL/api/:splat"
+  status = 200
+  force = true

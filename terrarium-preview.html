@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Gene-Gecko · Terrarium Preview</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Terrarium shell ── */
+body {
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #1a1206;
+}
+
+.terrarium {
+  position: relative;
+  min-height: 100vh;
+  width: 100%;
+  overflow: hidden;
+
+  /* Sky / glass top */
+  background:
+    /* dappled light shafts */
+    radial-gradient(ellipse 120px 300px at 18% 0%, rgba(255,230,120,0.18) 0%, transparent 70%),
+    radial-gradient(ellipse 80px 250px  at 42% 0%, rgba(255,240,160,0.12) 0%, transparent 65%),
+    radial-gradient(ellipse 100px 280px at 67% 0%, rgba(255,225,100,0.15) 0%, transparent 70%),
+    radial-gradient(ellipse 60px 200px  at 88% 0%, rgba(255,235,140,0.10) 0%, transparent 60%),
+    /* atmosphere gradient */
+    linear-gradient(
+      to bottom,
+      #0d1a08 0%,
+      #162510 12%,
+      #1e3318 22%,
+      #2a4520 35%,
+      #3d5e2a 50%,
+      #8a7040 68%,
+      #b8924a 78%,
+      #c9a258 86%,
+      #d4ae68 92%,
+      #c8a050 100%
+    );
+}
+
+/* ── Glass glare on top edge ── */
+.terrarium::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 6px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.35), transparent);
+  z-index: 100;
+}
+
+/* ── Sandy floor ── */
+.floor {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 22%;
+  background:
+    radial-gradient(ellipse 400px 30px at 30% 100%, rgba(0,0,0,0.25) 0%, transparent 100%),
+    radial-gradient(ellipse 300px 20px at 75% 100%, rgba(0,0,0,0.2) 0%, transparent 100%),
+    linear-gradient(to bottom, #c4933c 0%, #b8842e 40%, #9e7028 100%);
+  border-radius: 0 0 0 0;
+}
+
+/* pebble scatter */
+.floor::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle 3px at 8% 60%, rgba(0,0,0,0.3) 0%, transparent 100%),
+    radial-gradient(circle 2px at 15% 80%, rgba(255,255,255,0.15) 0%, transparent 100%),
+    radial-gradient(circle 4px at 22% 45%, rgba(0,0,0,0.2) 0%, transparent 100%),
+    radial-gradient(circle 3px at 35% 70%, rgba(0,0,0,0.25) 0%, transparent 100%),
+    radial-gradient(circle 2px at 47% 55%, rgba(255,255,255,0.1) 0%, transparent 100%),
+    radial-gradient(circle 5px at 58% 75%, rgba(0,0,0,0.2) 0%, transparent 100%),
+    radial-gradient(circle 3px at 70% 50%, rgba(0,0,0,0.3) 0%, transparent 100%),
+    radial-gradient(circle 2px at 82% 65%, rgba(255,255,255,0.12) 0%, transparent 100%),
+    radial-gradient(circle 4px at 91% 80%, rgba(0,0,0,0.22) 0%, transparent 100%);
+}
+
+/* ── Background moss / foliage on walls ── */
+.moss-left, .moss-right {
+  position: absolute;
+  bottom: 20%;
+  width: 140px;
+  z-index: 1;
+}
+.moss-left { left: 0; }
+.moss-right { right: 0; transform: scaleX(-1); }
+
+/* ── Plant — big leaf left ── */
+.plant-left {
+  position: absolute;
+  bottom: 20%;
+  left: 20px;
+  z-index: 3;
+}
+.leaf {
+  width: 90px;
+  height: 50px;
+  background: radial-gradient(ellipse at 20% 50%, #5a9c2a, #2d5a0e);
+  border-radius: 0 100% 100% 0 / 0 60% 60% 0;
+  transform-origin: left center;
+  box-shadow: inset -8px 0 12px rgba(0,0,0,0.3);
+  animation: leaf-sway 5s ease-in-out infinite;
+}
+.leaf:nth-child(2) {
+  transform: rotate(-35deg) translateY(-10px);
+  width: 75px;
+  animation-delay: -1.5s;
+  background: radial-gradient(ellipse at 20% 50%, #4d8a22, #265008);
+}
+.leaf:nth-child(3) {
+  transform: rotate(-65deg) translateY(-5px);
+  width: 60px;
+  animation-delay: -3s;
+  background: radial-gradient(ellipse at 20% 50%, #63a830, #2d600f);
+}
+@keyframes leaf-sway {
+  0%, 100% { transform: rotate(var(--base-rot, 0deg)); }
+  50%       { transform: rotate(calc(var(--base-rot, 0deg) + 4deg)); }
+}
+
+/* ── Plant — vine right ── */
+.plant-right {
+  position: absolute;
+  top: 8%;
+  right: 30px;
+  z-index: 3;
+}
+.vine-leaf {
+  width: 60px;
+  height: 35px;
+  background: radial-gradient(ellipse at 30% 40%, #4a8c20, #1e4008);
+  border-radius: 100% 0 100% 0;
+  margin-bottom: 18px;
+  transform-origin: right top;
+  animation: leaf-sway 6s ease-in-out infinite;
+}
+.vine-leaf:nth-child(even) {
+  transform: scaleX(-1) translateX(20px);
+  animation-delay: -2s;
+  background: radial-gradient(ellipse at 30% 40%, #55a028, #254c0c);
+}
+
+/* ── Rocks ── */
+.rock {
+  position: absolute;
+  border-radius: 50% 60% 55% 50% / 60% 55% 65% 50%;
+  background: linear-gradient(135deg, #9a9580 0%, #6b6758 40%, #4a4840 100%);
+  box-shadow:
+    inset -8px -8px 16px rgba(0,0,0,0.4),
+    inset 4px 4px 8px rgba(255,255,255,0.08),
+    4px 8px 18px rgba(0,0,0,0.5);
+}
+.rock::after {
+  content: "";
+  position: absolute;
+  top: 15%; left: 10%;
+  width: 30%;
+  height: 20%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  transform: rotate(-20deg);
+}
+
+/* ── Glowing cricket / run-bug ── */
+.cricket {
+  position: absolute;
+  cursor: pointer;
+  z-index: 20;
+  animation: cricket-pulse 2s ease-in-out infinite;
+  transition: transform 0.15s;
+}
+.cricket:hover { transform: scale(1.12); }
+.cricket-body {
+  width: 68px;
+  height: 32px;
+  background: radial-gradient(ellipse at 45% 40%, #e8d44d, #c4a000);
+  border-radius: 40% 50% 55% 40% / 50% 55% 45% 50%;
+  position: relative;
+  box-shadow:
+    0 0 18px 6px rgba(220,200,30,0.55),
+    0 0 40px 12px rgba(200,170,0,0.3),
+    inset -4px -4px 8px rgba(0,0,0,0.25);
+}
+.cricket-body::before { /* antenna */
+  content: "";
+  position: absolute;
+  top: -14px; left: 8px;
+  width: 1.5px; height: 16px;
+  background: #c4a000;
+  transform: rotate(-15deg);
+  box-shadow: 12px 0 0 #c4a000;
+}
+.cricket-body::after { /* legs */
+  content: "";
+  position: absolute;
+  bottom: -6px; left: 12px;
+  width: 42px; height: 7px;
+  border-bottom: 2px solid #a08800;
+  border-left: 1.5px solid #a08800;
+  border-right: 1.5px solid #a08800;
+  border-radius: 0 0 4px 4px;
+}
+.cricket-label {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.65rem;
+  font-weight: 800;
+  color: #3a2800;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  text-shadow: 0 1px 0 rgba(255,255,255,0.2);
+}
+@keyframes cricket-pulse {
+  0%, 100% { filter: brightness(1)   drop-shadow(0 0 6px rgba(220,200,30,0.6)); }
+  50%       { filter: brightness(1.2) drop-shadow(0 0 14px rgba(255,230,60,0.9)); }
+}
+
+/* ── Gecko SVG ── */
+.gecko-wrap {
+  position: absolute;
+  z-index: 25;
+  animation: gecko-idle 3.5s ease-in-out infinite;
+}
+@keyframes gecko-idle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25%       { transform: translateY(-3px) rotate(1deg); }
+  75%       { transform: translateY(2px) rotate(-1deg); }
+}
+
+/* ── UI Cards — embedded in terrain ── */
+.terrain-card {
+  position: absolute;
+  z-index: 15;
+}
+
+/* Sequence-type rock panel */
+.seq-rock {
+  bottom: 19%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 520px;
+}
+.seq-rock-face {
+  background: linear-gradient(160deg, #8a8575 0%, #6a6558 50%, #524e44 100%);
+  border-radius: 55% 50% 60% 45% / 45% 55% 50% 60%;
+  padding: 1.4rem 2.2rem 1.8rem;
+  box-shadow:
+    inset -10px -10px 20px rgba(0,0,0,0.35),
+    inset 5px 5px 10px rgba(255,255,255,0.07),
+    0 8px 24px rgba(0,0,0,0.5);
+  position: relative;
+}
+.seq-rock-face::before {
+  content: "";
+  position: absolute;
+  top: 12%; left: 8%;
+  width: 22%; height: 15%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  transform: rotate(-15deg);
+}
+
+/* File drop stones */
+.stone-panel {
+  background: linear-gradient(150deg, #7a7568 0%, #5c5948 50%, #454238 100%);
+  border-radius: 45% 55% 50% 50% / 55% 45% 60% 40%;
+  box-shadow:
+    inset -8px -8px 16px rgba(0,0,0,0.35),
+    inset 3px 3px 8px rgba(255,255,255,0.06),
+    0 6px 20px rgba(0,0,0,0.45);
+  padding: 1.1rem 1.4rem 1.3rem;
+  transition: box-shadow 0.2s;
+  cursor: pointer;
+}
+.stone-panel:hover, .stone-panel.drag-over {
+  box-shadow:
+    inset -8px -8px 16px rgba(0,0,0,0.35),
+    inset 3px 3px 8px rgba(255,255,255,0.06),
+    0 6px 24px rgba(0,0,0,0.45),
+    0 0 0 2px rgba(119,178,85,0.7),
+    0 0 20px rgba(119,178,85,0.3);
+}
+
+/* Slider branch */
+.branch-panel {
+  background: linear-gradient(90deg, #5a3e20 0%, #7a5830 50%, #5a3e20 100%);
+  border-radius: 20px;
+  padding: 0.7rem 1.2rem;
+  box-shadow:
+    inset 0 3px 6px rgba(0,0,0,0.4),
+    inset 0 -3px 6px rgba(255,255,255,0.05),
+    0 4px 12px rgba(0,0,0,0.4);
+  position: relative;
+}
+.branch-panel::before {
+  content: "";
+  position: absolute;
+  left: 0.5rem; right: 0.5rem;
+  top: 50%; transform: translateY(-50%);
+  height: 3px;
+  background: repeating-linear-gradient(90deg, #3d2a10 0px, #3d2a10 8px, #6b4822 8px, #6b4822 16px);
+  border-radius: 2px;
+  z-index: 0;
+}
+
+/* Category fungi */
+.fungi-row {
+  bottom: 2%;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  z-index: 15;
+}
+.fungus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.fungus:hover { transform: translateY(-4px); }
+.fungus-cap {
+  width: 52px;
+  height: 28px;
+  border-radius: 50% 50% 0 0;
+  position: relative;
+  box-shadow: inset -4px -4px 8px rgba(0,0,0,0.3);
+}
+.fungus-cap::after {
+  content: attr(data-label);
+  position: absolute;
+  bottom: 2px; left: 0; right: 0;
+  font-size: 0.52rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.85);
+  text-align: center;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+}
+.fungus-stem {
+  width: 12px;
+  height: 18px;
+  background: linear-gradient(to bottom, #c8b088, #a08860);
+  border-radius: 0 0 4px 4px;
+}
+.fungus.selected .fungus-cap {
+  filter: brightness(1.3) drop-shadow(0 0 6px currentColor);
+}
+
+/* Results leaf panel */
+.results-leaf {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 92vw);
+  background: linear-gradient(160deg, #2a4818 0%, #1e3610 60%, #162a0c 100%);
+  border-radius: 60% 60% 40% 40% / 30% 30% 50% 50%;
+  box-shadow:
+    inset -12px -12px 24px rgba(0,0,0,0.3),
+    inset 6px 6px 16px rgba(120,180,60,0.08),
+    0 8px 32px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(80,140,30,0.2);
+  padding: 2.2rem 3rem 3rem;
+  z-index: 30;
+  overflow: hidden;
+  animation: leaf-unfurl 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.results-leaf::before { /* leaf vein */
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 1px;
+  background: linear-gradient(to bottom, rgba(100,180,40,0.3), transparent);
+}
+.results-leaf::after { /* sheen */
+  content: "";
+  position: absolute;
+  top: 5%; left: 5%;
+  width: 25%; height: 30%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(150,220,80,0.08) 0%, transparent 100%);
+}
+@keyframes leaf-unfurl {
+  from { transform: translateX(-50%) scaleY(0.1) scaleX(0.6); opacity: 0; }
+  to   { transform: translateX(-50%) scaleY(1) scaleX(1);   opacity: 1; }
+}
+
+/* ── Form controls reskinned ── */
+legend, .ctrl-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(220,210,160,0.8);
+  margin-bottom: 0.5rem;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+
+.radio-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+.radio-pill {
+  position: relative;
+  cursor: pointer;
+}
+.radio-pill input { position: absolute; opacity: 0; width: 0; height: 0; }
+.radio-pill-label {
+  display: block;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(200,185,130,0.8);
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(150,130,80,0.35);
+  transition: all 0.15s;
+  cursor: pointer;
+  user-select: none;
+}
+.radio-pill input:checked + .radio-pill-label {
+  background: rgba(90,148,53,0.45);
+  border-color: rgba(119,178,85,0.7);
+  color: #c8e8a0;
+  box-shadow: 0 0 10px rgba(119,178,85,0.3);
+}
+
+.stone-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: rgba(220,210,160,0.75);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+  margin-bottom: 0.4rem;
+  display: block;
+}
+.stone-sublabel {
+  font-size: 0.68rem;
+  color: rgba(180,165,110,0.6);
+  margin-top: 0.2rem;
+}
+.drop-zone {
+  border: 1.5px dashed rgba(119,178,85,0.4);
+  border-radius: 6px;
+  padding: 0.5rem 0.7rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+  overflow: hidden;
+}
+.drop-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.drop-zone:hover {
+  border-color: rgba(119,178,85,0.75);
+  background: rgba(119,178,85,0.08);
+}
+.drop-icon { font-size: 1.3rem; display: block; line-height: 1; }
+.drop-text {
+  font-size: 0.7rem;
+  color: rgba(200,185,130,0.65);
+  margin-top: 0.2rem;
+  pointer-events: none;
+}
+.file-chip-row { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.3rem; }
+.t-chip {
+  background: rgba(90,148,53,0.3);
+  color: #b8e090;
+  border: 1px solid rgba(90,148,53,0.4);
+  border-radius: 4px;
+  padding: 1px 7px;
+  font-size: 0.68rem;
+}
+
+.branch-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: rgba(200,185,130,0.7);
+  margin-bottom: 0.3rem;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.t-slider {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #77b255 0%, #77b255 var(--pct,40%), rgba(0,0,0,0.4) var(--pct,40%), rgba(0,0,0,0.4) 100%);
+  outline: none;
+  position: relative;
+  z-index: 1;
+}
+.t-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #d4b86a, #a08030);
+  border: 2px solid #c8a040;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5), 0 0 8px rgba(200,160,40,0.4);
+  cursor: grab;
+}
+.t-slider:active::-webkit-slider-thumb { cursor: grabbing; }
+
+/* Run button */
+.run-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* Results inside leaf */
+.result-header {
+  text-align: center;
+  margin-bottom: 1.2rem;
+}
+.result-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #a8d870;
+  text-shadow: 0 0 12px rgba(120,200,40,0.4);
+  letter-spacing: 0.04em;
+}
+.result-sub {
+  font-size: 0.72rem;
+  color: rgba(160,210,100,0.6);
+  margin-top: 0.2rem;
+}
+.result-row {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 0.6rem;
+}
+.result-metric {
+  flex: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(90,148,53,0.3);
+  border-top: 2px solid rgba(119,178,85,0.5);
+  border-radius: 6px;
+  padding: 0.5rem 0.4rem;
+  text-align: center;
+}
+.r-val { display: block; font-size: 1.2rem; font-weight: 700; color: #a8d870; }
+.r-lab { font-size: 0.65rem; color: rgba(160,200,100,0.55); }
+.result-bar-wrap {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(90,148,53,0.25);
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  margin-bottom: 0.5rem;
+}
+.r-bar-label {
+  font-size: 0.68rem;
+  color: rgba(160,210,100,0.65);
+  margin-bottom: 0.3rem;
+  display: flex;
+  justify-content: space-between;
+}
+.r-bar-track {
+  height: 8px;
+  background: rgba(0,0,0,0.4);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.r-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(to right, #3e721d, #77b255);
+  box-shadow: 0 0 8px rgba(119,178,85,0.5);
+  transition: width 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Loading wiggle on process button */
+.cricket.loading .cricket-body {
+  animation: cricket-loading 0.4s ease-in-out infinite alternate;
+}
+@keyframes cricket-loading {
+  from { transform: rotate(-8deg) scale(0.95); }
+  to   { transform: rotate(8deg) scale(1.05); }
+}
+
+/* Preview badge */
+.preview-badge {
+  position: fixed;
+  top: 12px; right: 14px;
+  background: rgba(0,0,0,0.65);
+  color: rgba(255,255,255,0.55);
+  font-size: 0.68rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  z-index: 200;
+  pointer-events: none;
+}
+
+/* ── SVG Gecko ── */
+.gecko-svg { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+
+/* Tooltip for fungus on hover */
+.fungus-tip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.8);
+  color: #c8e890;
+  font-size: 0.65rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  margin-bottom: 4px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.fungus:hover .fungus-tip { opacity: 1; }
+
+/* ── Responsive scaling ── */
+@media (max-width: 640px) {
+  .seq-rock { width: 96vw; }
+  .stone-cards { flex-direction: column !important; }
+  .controls-mid { flex-direction: column !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="preview-badge">Layout Preview — Gene-Gecko Terrarium</div>
+
+<div class="terrarium" id="terrarium">
+
+  <!-- Background foliage -->
+  <div class="plant-left">
+    <div class="leaf" style="--base-rot:-10deg"></div>
+    <div class="leaf" style="--base-rot:-45deg"></div>
+    <div class="leaf" style="--base-rot:-72deg"></div>
+  </div>
+  <div class="plant-right">
+    <div class="vine-leaf"></div>
+    <div class="vine-leaf"></div>
+    <div class="vine-leaf"></div>
+    <div class="vine-leaf"></div>
+  </div>
+
+  <!-- Extra background leaves (right mid) -->
+  <div style="position:absolute;bottom:28%;right:80px;z-index:2;">
+    <div class="vine-leaf" style="width:80px;height:44px;margin-bottom:24px"></div>
+    <div class="vine-leaf" style="width:65px;height:36px;"></div>
+  </div>
+
+  <!-- Accent rock bottom-left -->
+  <div class="rock" style="width:100px;height:65px;bottom:18%;left:60px;z-index:5;"></div>
+  <!-- Accent rock bottom-right -->
+  <div class="rock" style="width:80px;height:50px;bottom:19%;right:80px;z-index:5;"></div>
+  <!-- Small rock near files -->
+  <div class="rock" style="width:45px;height:30px;bottom:42%;right:18%;z-index:4;opacity:0.7;"></div>
+
+  <!-- Sandy floor -->
+  <div class="floor"></div>
+
+  <!-- ══════════════════════════════════════════
+       SEQUENCE TYPE — big central rock
+  ══════════════════════════════════════════ -->
+  <div class="terrain-card seq-rock">
+    <div class="seq-rock-face">
+      <legend>Sequence Type</legend>
+      <div class="radio-row" id="seq-type-row">
+        <label class="radio-pill">
+          <input type="radio" name="seq" value="paired" checked onchange="updateSeqType(this.value)"/>
+          <span class="radio-pill-label">Paired reads</span>
+        </label>
+        <label class="radio-pill">
+          <input type="radio" name="seq" value="unidirectional" onchange="updateSeqType(this.value)"/>
+          <span class="radio-pill-label">Unidirectional</span>
+        </label>
+        <label class="radio-pill">
+          <input type="radio" name="seq" value="circular" onchange="updateSeqType(this.value)"/>
+          <span class="radio-pill-label">Circular plasmid</span>
+        </label>
+      </div>
+      <!-- Primer type row (hidden for circular) -->
+      <div id="primer-row" style="margin-top:0.75rem;">
+        <legend style="margin-bottom:0.4rem">Primer / Reference Type</legend>
+        <div class="radio-row">
+          <label class="radio-pill">
+            <input type="radio" name="primer" value="protein" checked/>
+            <span class="radio-pill-label">Protein (T7/T7-Term)</span>
+          </label>
+          <label class="radio-pill">
+            <input type="radio" name="primer" value="pUC19"/>
+            <span class="radio-pill-label">pUC19/M13R</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       FILE DROP STONES  (mid section)
+  ══════════════════════════════════════════ -->
+  <div class="terrain-card" style="bottom:36%;left:50%;transform:translateX(-50%);width:min(560px,92vw);z-index:16;">
+    <div class="stone-cards" style="display:flex;gap:1rem;align-items:flex-start;">
+
+      <!-- Sequences stone -->
+      <div class="stone-panel" style="flex:1.2" id="seq-stone"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event,'seq')">
+        <span class="stone-label" id="seq-stone-label">Drop Sequence Files</span>
+        <div class="drop-zone">
+          <input type="file" multiple accept=".seq,.fasta,.fa" onchange="handleFiles(event,'seq')" />
+          <span class="drop-icon">🧬</span>
+          <div class="drop-text" id="seq-drop-text">.seq · .fasta · .fa</div>
+        </div>
+        <div class="file-chip-row" id="seq-chips"></div>
+      </div>
+
+      <!-- Reference stone -->
+      <div class="stone-panel" style="flex:1"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event,'ref')">
+        <span class="stone-label">Reference Map</span>
+        <div class="drop-zone">
+          <input type="file" accept=".xlsx" onchange="handleFiles(event,'ref')" />
+          <span class="drop-icon">📋</span>
+          <div class="drop-text">.xlsx</div>
+        </div>
+        <div class="file-chip-row" id="ref-chips"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       SLIDER — branch
+  ══════════════════════════════════════════ -->
+  <div class="terrain-card" id="lcs-branch" style="bottom:56%;left:50%;transform:translateX(-50%);width:min(400px,85vw);z-index:14;">
+    <div class="branch-panel">
+      <div class="branch-label">
+        <span>Min LCS Length</span>
+        <span id="lcs-val" style="color:#d4c07a;font-weight:700;">12 bp</span>
+      </div>
+      <input class="t-slider" type="range" min="4" max="40" value="12"
+             oninput="updateSlider(this)" style="--pct:28%" />
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       GECKO on rock (top-left of form area)
+  ══════════════════════════════════════════ -->
+  <div class="gecko-wrap" style="bottom:32%;left:9%;z-index:20;">
+    <svg class="gecko-svg" width="90" height="56" viewBox="0 0 90 56" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- tail -->
+      <path d="M8 38 Q2 44 5 50 Q8 54 6 52" stroke="#5a9435" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <!-- body -->
+      <ellipse cx="35" cy="36" rx="22" ry="11" fill="#5a9435"/>
+      <ellipse cx="35" cy="36" rx="22" ry="11" fill="url(#gscale)" opacity="0.3"/>
+      <!-- spots -->
+      <circle cx="28" cy="33" r="3" fill="#77b255" opacity="0.7"/>
+      <circle cx="38" cy="30" r="2.5" fill="#77b255" opacity="0.7"/>
+      <circle cx="44" cy="36" r="2" fill="#77b255" opacity="0.6"/>
+      <!-- back legs -->
+      <path d="M18 42 L10 50 M22 44 L16 52" stroke="#3e721d" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- front legs -->
+      <path d="M48 38 L56 46 M44 36 L50 44" stroke="#3e721d" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- head -->
+      <ellipse cx="60" cy="32" rx="14" ry="9" fill="#4a8228"/>
+      <ellipse cx="60" cy="32" rx="14" ry="9" fill="url(#gscale2)" opacity="0.2"/>
+      <!-- eye -->
+      <circle cx="66" cy="28" r="3.5" fill="#1a2a0a"/>
+      <circle cx="67" cy="27" r="1.2" fill="rgba(255,255,255,0.8)"/>
+      <circle cx="65.5" cy="28.5" r="0.6" fill="rgba(255,255,200,0.5)"/>
+      <!-- nostril -->
+      <circle cx="71" cy="31" r="1" fill="#2d5010"/>
+      <!-- tongue -->
+      <g id="tongue" style="transform-origin:70px 32px">
+        <path d="M71 32 L80 30" stroke="#e85c5c" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M79 30 L83 27 M79 30 L83 32" stroke="#e85c5c" stroke-width="1.2" stroke-linecap="round"/>
+      </g>
+      <defs>
+        <pattern id="gscale" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+          <circle cx="3" cy="3" r="1.5" fill="rgba(0,0,0,0.15)"/>
+        </pattern>
+        <pattern id="gscale2" x="0" y="0" width="5" height="5" patternUnits="userSpaceOnUse">
+          <circle cx="2.5" cy="2.5" r="1.2" fill="rgba(0,0,0,0.12)"/>
+        </pattern>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- Tongue flick animation -->
+  <style>
+    #tongue { animation: tongue-flick 4s ease-in-out infinite; }
+    @keyframes tongue-flick {
+      0%,85%,100% { opacity:0; transform:scaleX(0); }
+      88%,97%     { opacity:1; transform:scaleX(1); }
+    }
+  </style>
+
+  <!-- ══════════════════════════════════════════
+       RUN CRICKET — glowing bug
+  ══════════════════════════════════════════ -->
+  <div class="cricket terrain-card" id="run-cricket" style="bottom:58%;right:12%;" onclick="runProcess()">
+    <div class="cricket-body">
+      <span class="cricket-label">RUN ANALYSIS</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       CATEGORY FUNGI ROW — floor level
+  ══════════════════════════════════════════ -->
+  <div class="terrain-card fungi-row" id="fungi-row">
+    <!-- filled in by JS -->
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       RESULTS LEAF (hidden until run)
+  ══════════════════════════════════════════ -->
+  <div class="results-leaf" id="results-leaf" style="display:none;">
+    <div class="result-header">
+      <div class="result-title">🦎 Gecko Found Matches</div>
+      <div class="result-sub">3 sequences analysed · protein alignment complete</div>
+    </div>
+    <div class="result-row">
+      <div class="result-metric"><span class="r-val">97.4%</span><span class="r-lab">DNA Identity</span></div>
+      <div class="result-metric"><span class="r-val">312 aa</span><span class="r-lab">Best ORF</span></div>
+      <div class="result-metric"><span class="r-val">3</span><span class="r-lab">ORFs Detected</span></div>
+      <div class="result-metric"><span class="r-val">18 bp</span><span class="r-lab">LCS Length</span></div>
+    </div>
+    <div class="result-bar-wrap">
+      <div class="r-bar-label"><span>sample1_T7 · DNA Identity</span><span>97.4%</span></div>
+      <div class="r-bar-track"><div class="r-bar-fill" id="bar1" style="width:0%"></div></div>
+    </div>
+    <div class="result-bar-wrap">
+      <div class="r-bar-label"><span>sample2_T7 · DNA Identity</span><span>89.1%</span></div>
+      <div class="r-bar-track"><div class="r-bar-fill" id="bar2" style="width:0%"></div></div>
+    </div>
+    <div class="result-bar-wrap">
+      <div class="r-bar-label"><span>sample3_T7 · DNA Identity</span><span>72.5%</span></div>
+      <div class="r-bar-track"><div class="r-bar-fill" id="bar3" style="width:0%;background:linear-gradient(to right,#856404,#ffc107);box-shadow:0 0 8px rgba(255,193,7,0.5)"></div></div>
+    </div>
+    <div style="text-align:center;margin-top:0.8rem;">
+      <button onclick="closeResults()" style="background:rgba(0,0,0,0.35);border:1px solid rgba(90,148,53,0.4);color:#90c860;border-radius:999px;padding:0.35rem 1.2rem;font-size:0.75rem;cursor:pointer;font-weight:600;">
+        ↩ Close leaf
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading gecko-traverse overlay (hidden) -->
+  <div id="loading-overlay" style="display:none;position:fixed;inset:0;background:rgba(15,25,8,0.65);backdrop-filter:blur(3px);z-index:500;align-items:center;justify-content:center;flex-direction:column;">
+    <div style="color:#a8d870;font-size:1rem;font-weight:700;text-shadow:0 0 20px rgba(120,200,40,0.6);margin-bottom:1rem;" id="loading-text">
+      Gecko is sniffing sequences…
+    </div>
+    <div id="traverse-gecko" style="position:absolute;bottom:38%;animation:lizard-traverse 3s linear infinite;">
+      <svg width="80" height="50" viewBox="0 0 90 56" fill="none">
+        <path d="M8 38 Q2 44 5 50" stroke="#5a9435" stroke-width="4" stroke-linecap="round" fill="none"/>
+        <ellipse cx="35" cy="36" rx="22" ry="11" fill="#5a9435"/>
+        <circle cx="28" cy="33" r="3" fill="#77b255" opacity="0.7"/>
+        <circle cx="38" cy="30" r="2.5" fill="#77b255" opacity="0.7"/>
+        <path d="M18 42 L10 50 M22 44 L16 52" stroke="#3e721d" stroke-width="3.5" stroke-linecap="round"/>
+        <path d="M48 38 L56 46 M44 36 L50 44" stroke="#3e721d" stroke-width="3.5" stroke-linecap="round"/>
+        <ellipse cx="60" cy="32" rx="14" ry="9" fill="#4a8228"/>
+        <circle cx="66" cy="28" r="3.5" fill="#1a2a0a"/>
+        <circle cx="67" cy="27" r="1.2" fill="rgba(255,255,255,0.8)"/>
+      </svg>
+    </div>
+    <style>
+      @keyframes lizard-traverse {
+        from { transform: translateX(calc(100vw + 100px)) scaleX(-1); }
+        to   { transform: translateX(-150px) scaleX(-1); }
+      }
+    </style>
+  </div>
+
+</div><!-- /terrarium -->
+
+<script>
+// ── Categories ──
+const CATEGORIES = [
+  { label: "Resistance", color: "#c0392b", bg: "#7a1010" },
+  { label: "Enzyme",     color: "#8e44ad", bg: "#4a0a6e" },
+  { label: "Reporter",   color: "#2980b9", bg: "#0a3a6e" },
+  { label: "Regulatory", color: "#27ae60", bg: "#0a5e2a" },
+  { label: "Structural", color: "#e67e22", bg: "#7a3800" },
+  { label: "Other",      color: "#7f8c8d", bg: "#3a3e3f" },
+];
+
+const fungiRow = document.getElementById('fungi-row');
+const selected = new Set();
+
+CATEGORIES.forEach((cat, i) => {
+  const f = document.createElement('div');
+  f.className = 'fungus';
+  f.style.position = 'relative';
+  f.innerHTML = `
+    <div class="fungus-tip">${cat.label}</div>
+    <div class="fungus-cap" style="background:radial-gradient(ellipse at 35% 30%, ${cat.color}, ${cat.bg});"
+         data-label="${cat.label.slice(0,7)}"></div>
+    <div class="fungus-stem"></div>
+  `;
+  f.onclick = () => {
+    if (selected.has(i)) { selected.delete(i); f.classList.remove('selected'); }
+    else { selected.add(i); f.classList.add('selected'); }
+  };
+  fungiRow.appendChild(f);
+});
+
+// ── Slider ──
+function updateSlider(el) {
+  const pct = ((el.value - el.min) / (el.max - el.min) * 100).toFixed(1);
+  el.style.setProperty('--pct', pct + '%');
+  document.getElementById('lcs-val').textContent = el.value + ' bp';
+}
+
+// ── Sequence type toggle ──
+function updateSeqType(val) {
+  const primerRow = document.getElementById('primer-row');
+  const lcsBranch = document.getElementById('lcs-branch');
+  const lbl = document.getElementById('seq-stone-label');
+  const dropText = document.getElementById('seq-drop-text');
+  if (val === 'circular') {
+    primerRow.style.display = 'none';
+    lcsBranch.style.opacity = '0.35';
+    lbl.textContent = 'Drop Circular Plasmids';
+    dropText.textContent = '.fasta · .fa';
+  } else if (val === 'unidirectional') {
+    primerRow.style.display = '';
+    lcsBranch.style.opacity = '0.35';
+    lbl.textContent = 'Drop Sequence Files';
+    dropText.textContent = '.seq · .fasta · .fa';
+  } else {
+    primerRow.style.display = '';
+    lcsBranch.style.opacity = '1';
+    lbl.textContent = 'Drop Paired Reads';
+    dropText.textContent = '.seq';
+  }
+}
+
+// ── File handling (visual only) ──
+const seqChips = document.getElementById('seq-chips');
+const refChips = document.getElementById('ref-chips');
+
+function handleFiles(e, type) {
+  const files = Array.from(e.target.files);
+  const row = type === 'seq' ? seqChips : refChips;
+  row.innerHTML = '';
+  files.forEach(f => {
+    const chip = document.createElement('span');
+    chip.className = 't-chip';
+    chip.textContent = f.name;
+    row.appendChild(chip);
+  });
+}
+
+function handleDrop(e, type) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  const files = Array.from(e.dataTransfer.files);
+  const row = type === 'seq' ? seqChips : refChips;
+  row.innerHTML = '';
+  files.forEach(f => {
+    const chip = document.createElement('span');
+    chip.className = 't-chip';
+    chip.textContent = f.name;
+    row.appendChild(chip);
+  });
+}
+
+// ── Run (demo) ──
+const loadingTexts = [
+  "Gecko is sniffing sequences…",
+  "Aligning amino acid tongues…",
+  "Detecting ORFs in the undergrowth…",
+  "Comparing reference maps…",
+  "Almost there — gecko spotted something…",
+];
+let ltIdx = 0, ltTimer;
+
+function runProcess() {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.style.display = 'flex';
+  const cricket = document.getElementById('run-cricket');
+  cricket.classList.add('loading');
+  ltIdx = 0;
+  document.getElementById('loading-text').textContent = loadingTexts[0];
+  ltTimer = setInterval(() => {
+    ltIdx = (ltIdx + 1) % loadingTexts.length;
+    document.getElementById('loading-text').textContent = loadingTexts[ltIdx];
+  }, 1200);
+
+  setTimeout(() => {
+    clearInterval(ltTimer);
+    overlay.style.display = 'none';
+    cricket.classList.remove('loading');
+    showResults();
+  }, 3200);
+}
+
+function showResults() {
+  const leaf = document.getElementById('results-leaf');
+  leaf.style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('bar1').style.width = '97.4%';
+    document.getElementById('bar2').style.width = '89.1%';
+    document.getElementById('bar3').style.width = '72.5%';
+  }, 300);
+}
+
+function closeResults() {
+  const leaf = document.getElementById('results-leaf');
+  leaf.style.animation = 'none';
+  leaf.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+  leaf.style.transform = 'translateX(-50%) scaleY(0.05) scaleX(0.4)';
+  leaf.style.opacity = '0';
+  setTimeout(() => {
+    leaf.style.display = 'none';
+    leaf.style.transform = '';
+    leaf.style.opacity = '';
+    leaf.style.transition = '';
+    leaf.style.animation = '';
+    document.getElementById('bar1').style.width = '0%';
+    document.getElementById('bar2').style.width = '0%';
+    document.getElementById('bar3').style.width = '0%';
+  }, 320);
+}
+</script>
+</body>
+</html>
