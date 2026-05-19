@@ -98,16 +98,16 @@ export default function AlignTab() {
           {loading ? "Aligning..." : "Align"}
         </button>
 
-        {loading && (
-          <div className="align-loading-track">
-            <img
-              src="/circle-gecko.svg"
-              alt="Loading"
-              className="align-loading-gecko"
-            />
-          </div>
-        )}
       </div>
+
+      {loading && (
+        <div className="align-loading-overlay">
+          <span className="align-loading-text">Aligning...</span>
+          <div className="align-loading-roller">
+            <img src="/circle-gecko.svg" alt="Loading" />
+          </div>
+        </div>
+      )}
 
       {result && (
         <div className="align-results">
