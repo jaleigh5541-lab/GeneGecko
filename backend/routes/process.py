@@ -1,5 +1,6 @@
 import gc
 import json
+import re
 import threading
 import time
 import uuid
@@ -13,9 +14,6 @@ from serializers import serialize_results
 
 router = APIRouter(prefix="/api")
 
-PAIRS_PER_BATCH = 3   # process 3 pairs (6 files) at a time for paired mode
-FILES_PER_BATCH = 5   # process 5 files at a time for non-paired modes
-
 # In-memory job store
 _jobs: dict[str, dict[str, Any]] = {}
 _JOBS_TTL = 3600
@@ -28,6 +26,101 @@ def _cleanup_jobs() -> None:
         del _jobs[jid]
 
 
+def _process_paired_one_at_a_time(
+    job_id: str,
+    seq_wrappers: list[FileWrapper],
+    ref_wrapper: FileWrapper,
+    use_dna_alignment: bool,
+    min_lcs: int,
+    selected: Optional[list[str]],
+) -> list[dict[str, Any]]:
+    """Process T7/T7-Term pairs one at a time to minimize memory."""
+    from Prot_modules import (  # type: ignore[import]
+        find_pairs,
+        process_pair,
+        load_reference_xlsx,
+        load_reference_dna_xlsx,
+        detect_features,
+        _add_orf_info,
+    )
+
+    filenames = [w.name for w in seq_wrappers]
+    name_to_wrapper = {w.name: w for w in seq_wrappers}
+
+    pairs = find_pairs(filenames)
+    if not pairs:
+        raise ValueError(
+            "No valid T7/T7-Term pairs found. "
+            "Files should follow naming pattern: *-T7.seq and *-T7-Term.seq"
+        )
+
+    # Load references once
+    if use_dna_alignment:
+        ref_dna_dict = load_reference_dna_xlsx(ref_wrapper)
+        ref_dict = None
+    else:
+        ref_dict = load_reference_xlsx(ref_wrapper)
+        ref_dna_dict = None
+
+    total_pairs = len(pairs)
+    all_results: list[dict[str, Any]] = []
+
+    for idx, (fwd_name, rev_name, prefix) in enumerate(pairs):
+        fwd_file = name_to_wrapper[fwd_name]
+        rev_file = name_to_wrapper[rev_name]
+
+        try:
+            # Reset file positions
+            fwd_file.seek(0)
+            rev_file.seek(0)
+            ref_wrapper.seek(0)
+
+            result = process_pair(
+                fwd_file, rev_file, prefix, min_lcs=min_lcs,
+                ref_dict=ref_dict, ref_dna_dict=ref_dna_dict,
+            )
+            result["sample"] = prefix
+            result["pipeline"] = "protein"
+            result["orientation"] = "forward"
+            result["detected_features"] = detect_features(
+                result.get("merged_dna") or "", selected_categories=selected
+            ) if result.get("merged_dna") else []
+            result["crop_info"] = {}
+            result["final_dna"] = result.get("merged_dna")
+
+            sample_base = re.split(r'[_-]', prefix, 1)[0].lower()
+            if ref_dna_dict:
+                result["reference"] = ref_dna_dict.get(sample_base)
+            elif ref_dict:
+                result["reference"] = ref_dict.get(sample_base)
+
+            _add_orf_info(result, result.get("merged_dna"))
+
+        except Exception as e:
+            result = {
+                "sample": prefix, "error": str(e),
+                "merged_dna": None, "final_dna": None,
+                "longest_orf": None, "orf_dna": None, "orf_length": 0,
+                "frame": None, "has_orf": False,
+                "merge_info": {}, "crop_info": {},
+                "reference": None, "alignment_text": None,
+                "identity_percent": 0.0, "orientation": "forward",
+                "pipeline": "protein", "detected_features": [],
+            }
+
+        serialized = serialize_results([result])
+        all_results.extend(serialized)
+        del result, serialized
+        gc.collect()
+
+        _jobs[job_id]["progress"] = {
+            "processed": idx + 1,
+            "total": total_pairs,
+        }
+
+    return all_results
+
+
 def _process_batch(
     seq_batch: list[FileWrapper],
     ref_wrapper: FileWrapper,
@@ -37,10 +130,10 @@ def _process_batch(
     min_lcs: int,
     selected: Optional[list[str]],
 ) -> list[dict[str, Any]]:
-    """Process a single batch of sequence files and return serialized results."""
+    """Process a batch for non-paired modes."""
+    ref_wrapper.seek(0)
     if use_protein:
         from Prot_modules import (  # type: ignore[import]
-            main as prot_main,
             process_circular_queries as prot_circular,
             process_unidirectional as prot_unidirectional,
         )
@@ -50,21 +143,14 @@ def _process_batch(
                 use_dna_alignment=use_dna_alignment,
                 selected_categories=selected,
             )
-        elif sequence_type == "unidirectional":
+        else:
             results = prot_unidirectional(
                 seq_batch, ref_wrapper,
                 use_dna_alignment=use_dna_alignment,
                 selected_categories=selected,
             )
-        else:
-            results = prot_main(
-                seq_batch, ref_wrapper,
-                min_lcs=min_lcs,
-                use_dna_alignment=use_dna_alignment,
-            )
     else:
         from intron_modules import (  # type: ignore[import]
-            main as intron_main,
             process_circular_queries as intron_circular,
             process_unidirectional as intron_unidirectional,
         )
@@ -73,15 +159,9 @@ def _process_batch(
                 seq_batch, ref_wrapper,
                 selected_categories=selected,
             )
-        elif sequence_type == "unidirectional":
+        else:
             results = intron_unidirectional(
                 seq_batch, ref_wrapper,
-                selected_categories=selected,
-            )
-        else:
-            results = intron_main(
-                seq_batch, ref_wrapper,
-                min_lcs=min_lcs,
                 selected_categories=selected,
             )
 
@@ -89,50 +169,6 @@ def _process_batch(
     del results
     gc.collect()
     return serialized
-
-
-def _group_into_pair_batches(
-    seq_wrappers: list[FileWrapper],
-) -> list[list[FileWrapper]]:
-    """Group files into batches that keep T7/T7-Term pairs together."""
-    import re
-
-    def normalize(name: str) -> str:
-        return re.sub(r'\s*\(\d+\)(?=\.seq$)', '', name, flags=re.IGNORECASE)
-
-    # Find pairs using the same logic as Prot_modules.find_pairs
-    filenames = [w.name for w in seq_wrappers]
-    name_to_wrapper = {w.name: w for w in seq_wrappers}
-    norm_map = {normalize(f).lower(): f for f in filenames}
-
-    paired_files: list[list[FileWrapper]] = []  # each entry is [fwd, rev]
-    used: set[str] = set()
-
-    for f in filenames:
-        norm_f = normalize(f)
-        if re.search(r'-t7\.seq$', norm_f, re.IGNORECASE):
-            prefix = re.sub(r'-t7\.seq$', '', norm_f, flags=re.IGNORECASE)
-            rev_candidate = prefix + "-T7-Term.seq"
-            rev_file = norm_map.get(rev_candidate.lower())
-            if rev_file and f not in used and rev_file not in used:
-                paired_files.append([name_to_wrapper[f], name_to_wrapper[rev_file]])
-                used.add(f)
-                used.add(rev_file)
-
-    # Batch pairs together
-    batches: list[list[FileWrapper]] = []
-    for i in range(0, len(paired_files), PAIRS_PER_BATCH):
-        batch: list[FileWrapper] = []
-        for pair in paired_files[i : i + PAIRS_PER_BATCH]:
-            batch.extend(pair)
-        batches.append(batch)
-
-    # Any unpaired files go in a final batch
-    unpaired = [w for w in seq_wrappers if w.name not in used]
-    if unpaired:
-        batches.append(unpaired)
-
-    return batches
 
 
 def _run_processing(
@@ -149,34 +185,35 @@ def _run_processing(
         use_protein = primer_type != "intron"
         use_dna_alignment = use_aa_refs.lower() != "true"
 
-        # Build batches: pair-aware for paired mode, simple chunks otherwise
         if sequence_type == "paired":
-            batches = _group_into_pair_batches(seq_wrappers)
-        else:
-            batches = [
-                seq_wrappers[i : i + FILES_PER_BATCH]
-                for i in range(0, len(seq_wrappers), FILES_PER_BATCH)
-            ]
-
-        total_files = len(seq_wrappers)
-        processed_files = 0
-        all_results: list[dict[str, Any]] = []
-
-        for batch in batches:
-            batch_results = _process_batch(
-                batch, ref_wrapper, sequence_type,
-                use_protein, use_dna_alignment, min_lcs, selected,
+            # Process one pair at a time — minimal memory
+            all_results = _process_paired_one_at_a_time(
+                job_id, seq_wrappers, ref_wrapper,
+                use_dna_alignment, min_lcs, selected,
             )
-            all_results.extend(batch_results)
-            processed_files += len(batch)
+        else:
+            # Non-paired: batch 3 files at a time
+            batch_size = 3
+            total = len(seq_wrappers)
+            all_results = []
 
-            _jobs[job_id]["progress"] = {
-                "processed": processed_files,
-                "total": total_files,
-            }
+            for i in range(0, total, batch_size):
+                batch = seq_wrappers[i : i + batch_size]
+                for w in batch:
+                    w.seek(0)
+                batch_results = _process_batch(
+                    batch, ref_wrapper, sequence_type,
+                    use_protein, use_dna_alignment, min_lcs, selected,
+                )
+                all_results.extend(batch_results)
 
-            del batch, batch_results
-            gc.collect()
+                _jobs[job_id]["progress"] = {
+                    "processed": min(i + batch_size, total),
+                    "total": total,
+                }
+
+                del batch, batch_results
+                gc.collect()
 
         _jobs[job_id]["results"] = all_results
         _jobs[job_id]["status"] = "done"
