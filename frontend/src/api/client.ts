@@ -39,6 +39,18 @@ export async function submitAlign(
   return data;
 }
 
+async function pollJob(jobId: string): Promise<unknown[]> {
+  while (true) {
+    await new Promise((r) => setTimeout(r, 2000));
+    const res = await fetch(`${API_BASE}/api/jobs/${jobId}`);
+    if (!res.ok) throw new Error(`Job poll failed (HTTP ${res.status})`);
+    const data = await res.json();
+    if (data.status === "done") return data.results ?? [];
+    if (data.status === "error") throw new Error(data.error ?? "Processing failed");
+    // still running — keep polling
+  }
+}
+
 export async function submitProcess(formData: FormData): Promise<unknown[]> {
   let res: Response;
   try {
@@ -51,16 +63,16 @@ export async function submitProcess(formData: FormData): Promise<unknown[]> {
   }
   const text = await res.text();
   if (!text) {
-    throw new Error(`Empty response (HTTP ${res.status}). The server may have timed out. Try fewer/smaller files.`);
+    throw new Error(`Empty response (HTTP ${res.status}). The server may be starting up — try again in 30 seconds.`);
   }
-  let data: { success: boolean; results?: unknown[]; error?: string; detail?: string };
+  let data: { success: boolean; job_id?: string; error?: string; detail?: string };
   try {
     data = JSON.parse(text);
   } catch {
     throw new Error(`Server returned non-JSON (HTTP ${res.status}): ${text.slice(0, 200)}`);
   }
-  if (!res.ok || !data.success) {
+  if (!res.ok || !data.success || !data.job_id) {
     throw new Error(data.error ?? data.detail ?? `Processing failed (HTTP ${res.status})`);
   }
-  return data.results ?? [];
+  return pollJob(data.job_id);
 }
