@@ -97,6 +97,16 @@ export default function AlignTab() {
         >
           {loading ? "Aligning..." : "Align"}
         </button>
+
+        {loading && (
+          <div className="align-loading-track">
+            <img
+              src="/circle-gecko.svg"
+              alt="Loading"
+              className="align-loading-gecko"
+            />
+          </div>
+        )}
       </div>
 
       {result && (

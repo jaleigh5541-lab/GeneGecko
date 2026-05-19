@@ -1069,6 +1069,34 @@ legend {
   margin-top: 1.25rem;
 }
 
+/* ── Align tab loading animation ── */
+.align-loading-track {
+  position: relative;
+  width: 100%;
+  height: 80px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.align-loading-gecko {
+  position: absolute;
+  top: 50%;
+  width: 691px;   /* 3455 × 0.2 */
+  height: 691px;
+  margin-top: -345px;
+  animation: gecko-traverse 4s linear infinite, gecko-spin 3s linear infinite reverse;
+}
+
+@keyframes gecko-traverse {
+  from { left: 100%; }
+  to   { left: -691px; }
+}
+
+@keyframes gecko-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 @media (max-width: 640px) {
   .align-inputs {
     grid-template-columns: 1fr;
